@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>与助手对话</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        #chatContainer {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        #chatBox {
+            height: 300px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .message {
+            margin: 10px 0;
+        }
+        .user {
+            text-align: right;
+            color: #333;
+        }
+        .assistant {
+            text-align: left;
+            color: #007bff;
+        }
+        #inputQuestion {
+            width: calc(100% - 60px);
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        #chatButton {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #chatButton:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div id="chatContainer">
+        <div id="chatBox"></div>
+        <textarea id="inputQuestion" placeholder="请输入你的问题..."></textarea>
+        <button id="chatButton">发送问题</button>
+    </div>
+
+    <script>
+        const chatBox = document.getElementById('chatBox');
+        const inputQuestion = document.getElementById('inputQuestion');
+        const chatButton = document.getElementById('chatButton');
+
+        // 添加消息到聊天框
+        function addMessage(role, content) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', role);
+            messageDiv.textContent = content;
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight; // 滚动到最底部
+        }
+
+        chatButton.addEventListener('click', async () => {
+            const userQuestion = inputQuestion.value.trim();
+            if (!userQuestion) {
+                alert('请输入问题！');
+                return;
+            }
+
+            // 添加用户消息
+            addMessage('user', userQuestion);
+
+            // 显示加载动画
+            addMessage('assistant', '正在思考...');
+            inputQuestion.value = ''; // 清空输入框
+
+            try {
+                const response = await fetch('http://127.0.0.1:11434/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: 'deepseek-r1:7b',
+                        messages: [
+                            { role: 'system', content: '你是一个乐于助人的助手' },
+                            { role: 'user', content: userQuestion }
+                        ]
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('请求失败');
+                }
+
+                // 读取服务器返回的文本数据
+                const text = await response.text();
+                const messages = [];
+                let temp = "";
+
+                // 手动解析 JSON 序列
+                for (let char of text) {
+                    temp += char;
+                    try {
+                        const parsed = JSON.parse(temp);
+                        messages.push(parsed);
+                        temp = "";
+                    } catch (error) {
+                        continue;
+                    }
+                }
+
+                // 清除加载动画
+                chatBox.lastChild.remove();
+
+                // 逐步显示回答
+                let assistantResponse = "";
+                const assistantMessages = messages.filter(msg => msg.message.role === "assistant");
+                assistantMessages.forEach(msg => {
+                    assistantResponse += msg.message.content;
+                });
+
+                // 慢慢显示回答内容
+                let index = 0;
+                const displayInterval = setInterval(() => {
+                    if (index < assistantResponse.length) {
+                        const assistantDiv = document.querySelector('.assistant:last-child');
+                        assistantDiv.textContent += assistantResponse[index];
+                        index++;
+                    } else {
+                        clearInterval(displayInterval);
+                    }
+                }, 100); // 控制显示速度（单位：毫秒）
+
+                addMessage('assistant', ''); // 添加一个空的助手消息元素
+            } catch (error) {
+                // 显示错误信息
+                chatBox.lastChild.remove(); // 清除加载动画
+                addMessage('assistant', `错误: ${error.message}`);
+            }
+        });
+    </script>
+</body>
+</html>
