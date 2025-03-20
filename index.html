@@ -70,6 +70,20 @@
         const chatBox = document.getElementById('chatBox');
         const inputQuestion = document.getElementById('inputQuestion');
         const chatButton = document.getElementById('chatButton');
+        let knowledgeBase = null;
+
+        // 加载知识库
+        async function loadKnowledgeBase() {
+            try {
+                const response = await fetch('knowledge_base.json');
+                knowledgeBase = await response.json();
+            } catch (error) {
+                console.error('加载知识库失败:', error);
+            }
+        }
+
+        // 在页面加载时加载知识库
+        loadKnowledgeBase();
 
         // 添加消息到聊天框
         function addMessage(role, content) {
@@ -104,7 +118,7 @@
                         model: 'deepseek-r1:7b',
                         messages: [
                             { role: 'system', content: '你是一个乐于助人的助手' },
-                            { role: 'user', content: userQuestion }
+                            { role: 'user', content: `基于以下知识库回答问题：${JSON.stringify(knowledgeBase)}\n\n用户问题：${userQuestion}` }
                         ]
                     })
                 });
@@ -150,7 +164,7 @@
                     } else {
                         clearInterval(displayInterval);
                     }
-                }, 100); // 控制显示速度（单位：毫秒）
+                }, 30); // 控制显示速度（单位：毫秒）
 
                 addMessage('assistant', ''); // 添加一个空的助手消息元素
             } catch (error) {
